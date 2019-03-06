@@ -364,6 +364,19 @@ public class CollectionBinderTests {
 	}
 
 	@Test
+	public void bindToNestedCollectionWhenEmptyStringShouldReturnEmptyCollection() {
+		MockConfigurationPropertySource source = new MockConfigurationPropertySource();
+		source.put("foo.value", "one");
+		source.put("foo.foos", "");
+		this.sources.add(source);
+		Bindable<BeanWithNestedCollection> target = Bindable
+				.of(BeanWithNestedCollection.class);
+		BeanWithNestedCollection foo = this.binder.bind("foo", target).get();
+		assertThat(foo.getValue()).isEqualTo("one");
+		assertThat(foo.getFoos()).isEmpty();
+	}
+
+	@Test
 	public void bindToCollectionShouldUsePropertyEditor() {
 		// gh-12166
 		MockConfigurationPropertySource source = new MockConfigurationPropertySource();
@@ -401,7 +414,17 @@ public class CollectionBinderTests {
 		this.sources.add(source);
 		Bindable<ClonedArrayBean> target = Bindable.of(ClonedArrayBean.class);
 		ClonedArrayBean bean = this.binder.bind("foo", target).get();
-		assertThat(bean.getBar()).contains("hello");
+		assertThat(bean.getBar()).containsExactly("hello");
+	}
+
+	@Test
+	public void bindToBeanWithExceptionInGetterForExistingValue() {
+		MockConfigurationPropertySource source = new MockConfigurationPropertySource();
+		source.put("foo.values", "a,b,c");
+		this.sources.add(source);
+		BeanWithGetterException result = this.binder
+				.bind("foo", Bindable.of(BeanWithGetterException.class)).get();
+		assertThat(result.getValues()).containsExactly("a", "b", "c");
 	}
 
 	public static class ExampleCollectionBean {
@@ -504,6 +527,20 @@ public class CollectionBinderTests {
 
 		public void setBar(String[] bar) {
 			this.bar = bar;
+		}
+
+	}
+
+	public static class BeanWithGetterException {
+
+		private List<String> values;
+
+		public void setValues(List<String> values) {
+			this.values = values;
+		}
+
+		public List<String> getValues() {
+			return Collections.unmodifiableList(this.values);
 		}
 
 	}

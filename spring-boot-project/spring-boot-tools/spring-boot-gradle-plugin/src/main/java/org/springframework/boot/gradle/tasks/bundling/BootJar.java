@@ -40,16 +40,20 @@ public class BootJar extends Jar implements BootArchive {
 	private final BootArchiveSupport support = new BootArchiveSupport(
 			"org.springframework.boot.loader.JarLauncher", this::resolveZipCompression);
 
-	private FileCollection classpath;
+	private final CopySpec bootInf;
 
 	private String mainClassName;
+
+	private FileCollection classpath;
 
 	/**
 	 * Creates a new {@code BootJar} task.
 	 */
 	public BootJar() {
-		into("BOOT-INF/classes", classpathFiles(File::isDirectory));
-		into("BOOT-INF/lib", classpathFiles(File::isFile));
+		this.bootInf = getProject().copySpec().into("BOOT-INF");
+		getMainSpec().with(this.bootInf);
+		this.bootInf.into("classes", classpathFiles(File::isDirectory));
+		this.bootInf.into("lib", classpathFiles(File::isFile));
 	}
 
 	private Action<CopySpec> classpathFiles(Spec<File> filter) {
@@ -72,6 +76,13 @@ public class BootJar extends Jar implements BootArchive {
 
 	@Override
 	public String getMainClassName() {
+		if (this.mainClassName == null) {
+			String manifestStartClass = (String) getManifest().getAttributes()
+					.get("Start-Class");
+			if (manifestStartClass != null) {
+				setMainClassName(manifestStartClass);
+			}
+		}
 		return this.mainClassName;
 	}
 
@@ -126,6 +137,32 @@ public class BootJar extends Jar implements BootArchive {
 	@Override
 	public void setExcludeDevtools(boolean excludeDevtools) {
 		this.support.setExcludeDevtools(excludeDevtools);
+	}
+
+	/**
+	 * Returns a {@code CopySpec} that can be used to add content to the {@code BOOT-INF}
+	 * directory of the jar.
+	 * @return a {@code CopySpec} for {@code BOOT-INF}
+	 * @since 2.0.3
+	 */
+	public CopySpec getBootInf() {
+		CopySpec child = getProject().copySpec();
+		this.bootInf.with(child);
+		return child;
+	}
+
+	/**
+	 * Calls the given {@code action} to add content to the {@code BOOT-INF} directory of
+	 * the jar.
+	 * @param action the {@code Action} to call
+	 * @return the {@code CopySpec} for {@code BOOT-INF} that was passed to the
+	 * {@code Action}
+	 * @since 2.0.3
+	 */
+	public CopySpec bootInf(Action<CopySpec> action) {
+		CopySpec bootInf = getBootInf();
+		action.execute(bootInf);
+		return bootInf;
 	}
 
 	/**

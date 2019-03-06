@@ -261,12 +261,12 @@ by implementing `ApplicationContextAware` or, if the listener is a bean, by usin
 [[boot-features-web-environment]]
 === Web Environment
 A `SpringApplication` attempts to create the right type of `ApplicationContext` on your
-behalf. The algorithm used to determine a `WebEnvironmentType` is fairly simple:
+behalf. The algorithm used to determine a `WebApplicationType` is fairly simple:
 
 * If Spring MVC is present, an `AnnotationConfigServletWebServerApplicationContext` is
 used
 * If Spring MVC is not present and Spring WebFlux is present, an
-`AnnotationConfigReactiveWebApplicationContext` is used
+`AnnotationConfigReactiveWebServerApplicationContext` is used
 * Otherwise, `AnnotationConfigApplicationContext` is used
 
 This means that if you are using Spring MVC and the new `WebClient` from Spring WebFlux in
@@ -2064,7 +2064,7 @@ directory locations). The root Servlet context path, `"/"`, is automatically add
 location as well.
 
 In addition to the "`standard`" static resource locations mentioned earlier, a special
-case is made for http://www.webjars.org/[Webjars content]. Any resources with a path in
+case is made for https://www.webjars.org/[Webjars content]. Any resources with a path in
 `+/webjars/**+` are served from jar files if they are packaged in the Webjars format.
 
 TIP: Do not use the `src/main/webapp` directory if your application is packaged as a jar.
@@ -2625,7 +2625,7 @@ custom locations. So, if there is an `index.html` in any of your locations on st
 is the home page of the application.
 
 In addition to the "`standard`" static resource locations listed earlier, a special case
-is made for http://www.webjars.org/[Webjars content]. Any resources with a path in
+is made for https://www.webjars.org/[Webjars content]. Any resources with a path in
 `+/webjars/**+` are served from jar files if they are packaged in the Webjars format.
 
 TIP: Spring WebFlux applications do not strictly depend on the Servlet API, so they
@@ -2763,13 +2763,13 @@ does so, the orders shown in the following table will be used:
 [[boot-features-jersey]]
 === JAX-RS and Jersey
 If you prefer the JAX-RS programming model for REST endpoints, you can use one of the
-available implementations instead of Spring MVC. https://jersey.github.io/[Jersey] 1.x and
-http://cxf.apache.org/[Apache CXF] work quite well out of the box if you register their
-`Servlet` or `Filter` as a `@Bean` in your application context. Jersey 2.x has some native
-Spring support, so we also provide auto-configuration support for it in Spring Boot,
-together with a starter.
+available implementations instead of Spring MVC. https://jersey.github.io/[Jersey] and
+http://cxf.apache.org/[Apache CXF] work quite well out of the box. CXF requires you to
+register its `Servlet` or `Filter` as a `@Bean` in your application context. Jersey has
+some native Spring support, so we also provide auto-configuration support for it in
+Spring Boot, together with a starter.
 
-To get started with Jersey 2.x, include the `spring-boot-starter-jersey` as a dependency
+To get started with Jersey, include the `spring-boot-starter-jersey` as a dependency
 and then you need one `@Bean` of type `ResourceConfig` in which you register all the
 endpoints, as shown in the following example:
 
@@ -2828,12 +2828,7 @@ the filter registrations can be given init parameters by using `spring.jersey.in
 specify a map of properties.
 
 There is a {github-code}/spring-boot-samples/spring-boot-sample-jersey[Jersey sample] so
-that you can see how to set things up. There is also a
-{github-code}/spring-boot-samples/spring-boot-sample-jersey1[Jersey 1.x sample]. Note
-that, in the Jersey 1.x sample, the spring-boot maven plugin has been configured to
-unpack some Jersey jars so that they can be scanned by the JAX-RS implementation (because
-the sample asks for them to be scanned in its `Filter` registration). If any of your
-JAX-RS resources are packaged as nested jars, you may need to do the same.
+that you can see how to set things up.
 
 
 
@@ -2982,8 +2977,7 @@ If you need to programmatically configure your embedded servlet container, you c
 register a Spring bean that implements the `WebServerFactoryCustomizer` interface.
 `WebServerFactoryCustomizer` provides access to the
 `ConfigurableServletWebServerFactory`, which includes numerous customization setter
-methods. Dedicated variants exist for Tomcat, Jetty, and Undertow. The following example
-shows programmatically setting the port:
+methods. The following example shows programmatically setting the port:
 
 [source,java,indent=0]
 ----
@@ -3002,7 +2996,9 @@ shows programmatically setting the port:
 	}
 ----
 
-
+NOTE: `TomcatServletWebServerFactory`, `JettyServletWebServerFactory` and `UndertowServletWebServerFactory`
+are dedicated variants of `ConfigurableServletWebServerFactory` that have additional customization setter methods
+for Tomcat, Jetty and Undertow respectively.
 
 [[boot-features-customizing-configurableservletwebserverfactory-directly]]
 ===== Customizing ConfigurableServletWebServerFactory Directly
@@ -3033,12 +3029,9 @@ code documentation] for details.
 When running a Spring Boot application that uses an embedded servlet container (and is
 packaged as an executable archive), there are some limitations in the JSP support.
 
-* With Tomcat, it should work if you use war packaging. That is, an executable war works
-and is also deployable to a standard container (not limited to, but including Tomcat).
-An executable jar does not work because of a hard-coded file pattern in Tomcat.
-
-* With Jetty, it should work if you use war packaging. That is, an executable war works,
-and is also deployable to any standard container.
+* With Jetty and Tomcat, it should work if you use war packaging. An executable war will
+  work when launched with `java -jar`, and will also be deployable to any standard
+  container. JSPs are not supported when using an executable jar.
 
 * Undertow does not support JSPs.
 
@@ -3156,7 +3149,8 @@ Spring.
 ==== Client
 If you have `spring-security-oauth2-client` on your classpath, you can take advantage of
 some auto-configuration to make it easy to set up an OAuth2 Client. This configuration
-makes use of the properties under `OAuth2ClientProperties`.
+makes use of the properties under `OAuth2ClientProperties`. The same properties are applicable
+for both servlet and reactive applications.
 
 You can register multiple OAuth2 clients and providers under the
 `spring.security.oauth2.client` prefix, as shown in the following example:
@@ -3191,7 +3185,7 @@ You can register multiple OAuth2 clients and providers under the
 By default, Spring Security's `OAuth2LoginAuthenticationFilter` only processes URLs
 matching `/login/oauth2/code/*`. If you want to customize the `redirect-uri-template` to
 use a different pattern, you need to provide configuration to process that custom pattern.
-For example, you can add your own `WebSecurityConfigurerAdapter` that resembles the
+For example, for servlet applications, you can add your own `WebSecurityConfigurerAdapter` that resembles the
 following:
 
 [source,java,indent=0]
@@ -3683,11 +3677,11 @@ commercial and open source editions can be used with Spring Boot.
 ==== Code Generation
 In order to use jOOQ type-safe queries, you need to generate Java classes from your
 database schema. You can follow the instructions in the
-http://www.jooq.org/doc/3.6/manual-single-page/#jooq-in-7-steps-step3[jOOQ user manual].
-If you use the `jooq-codegen-maven` plugin and you also use the
-`spring-boot-starter-parent` "`parent POM`", you can safely omit the plugin's `<version>`
-tag. You can also use Spring Boot-defined version variables (such as `h2.version`) to
-declare the plugin's database dependency. The following listing shows an example:
+{jooq-manual}/#jooq-in-7-steps-step3[jOOQ user manual]. If you use the
+`jooq-codegen-maven` plugin and you also use the `spring-boot-starter-parent`
+"`parent POM`", you can safely omit the plugin's `<version>` tag. You can also use Spring
+Boot-defined version variables (such as `h2.version`) to declare the plugin's database
+dependency. The following listing shows an example:
 
 [source,xml,indent=0]
 ----
@@ -3777,6 +3771,7 @@ following jOOQ Types:
 * `RecordListenerProvider`
 * `ExecuteListenerProvider`
 * `VisitListenerProvider`
+* `TransactionListenerProvider`
 
 You can also create your own `org.jooq.Configuration` `@Bean` if you want to take
 complete control of the jOOQ configuration.
@@ -4221,14 +4216,45 @@ https://projects.spring.io/spring-data-solr/[reference documentation].
 
 [[boot-features-elasticsearch]]
 === Elasticsearch
-http://www.elasticsearch.org/[Elasticsearch] is an open source, distributed, real-time
-search and analytics engine. Spring Boot offers basic auto-configuration for
-Elasticsearch and the abstractions on top of it provided by
-https://github.com/spring-projects/spring-data-elasticsearch[Spring Data Elasticsearch].
-There is a `spring-boot-starter-data-elasticsearch` "`Starter`" for collecting the
-dependencies in a convenient way. Spring Boot also supports
-https://github.com/searchbox-io/Jest[Jest].
+https://www.elastic.co/products/elasticsearch[Elasticsearch] is an open source,
+distributed, RESTful search and analytics engine. Spring Boot offers basic
+auto-configuration for Elasticsearch.
 
+Spring Boot supports several HTTP clients:
+
+* The official Java "Low Level" and "High Level" REST clients
+* https://github.com/searchbox-io/Jest[Jest]
+
+The transport client is still being used by
+https://github.com/spring-projects/spring-data-elasticsearch[Spring Data Elasticsearch],
+which you can start using with the `spring-boot-starter-data-elasticsearch` "`Starter`".
+
+
+[[boot-features-connecting-to-elasticsearch-rest]]
+==== Connecting to Elasticsearch by REST clients
+Elasticsearch ships
+https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/index.html[two different REST clients]
+that you can use to query a cluster: the "Low Level" client and the "High Level" client.
+
+If you have the `org.elasticsearch.client:elasticsearch-rest-client` dependency on the
+classpath, Spring Boot will auto-configure and register a `RestClient` bean that
+by default targets `http://localhost:9200`.
+You can further tune how `RestClient` is configured, as shown in the following example:
+
+[source,properties,indent=0]
+----
+	spring.elasticsearch.rest.uris=http://search.example.com:9200
+	spring.elasticsearch.rest.username=user
+	spring.elasticsearch.rest.password=secret
+----
+
+You can also register an arbitrary number of beans that implement
+`RestClientBuilderCustomizer` for more advanced customizations.
+To take full control over the registration, define a `RestClient` bean.
+
+If you have the `org.elasticsearch.client:elasticsearch-rest-high-level-client` dependency
+on the classpath, Spring Boot will auto-configure a `RestHighLevelClient`, which wraps
+any existing `RestClient` bean, reusing its HTTP configuration.
 
 
 [[boot-features-connecting-to-elasticsearch-jest]]
@@ -4507,6 +4533,11 @@ URLs of your server in your application.properties, as shown in the following ex
 
 If you need to customize connection settings, you can use the `spring.ldap.base` and
 `spring.ldap.base-environment` properties.
+
+A `LdapContextSource` is auto-configured based on these settings. If you need to customize
+it, for instance to use a `PooledContextSource`, you can still inject the auto-configured
+`LdapContextSource`. Make sure to flag your customized `ContextSource` as `@Primary` so
+that the auto-configured `LdapTemplate` uses it.
 
 
 
@@ -5678,6 +5709,15 @@ following example:
 	spring.mail.properties.mail.smtp.writetimeout=5000
 ----
 
+It is also possible to configure a `JavaMailSender` with an existing `Session` from JNDI:
+
+[source,properties,indent=0]
+----
+	spring.mail.jndi-name=mail/Session
+----
+
+When a `jndi-name` is set, it takes precedence over all other Session-related settings.
+
 
 
 [[boot-features-jta]]
@@ -6165,12 +6205,20 @@ class annotated with `@SpringBootApplication` or `@SpringBootConfiguration`. As 
 you <<using-boot-structuring-your-code, structured your code>> in a sensible way, your
 main configuration is usually found.
 
-NOTE: If you use a
+[NOTE]
+====
+If you use a
 <<boot-features-testing-spring-boot-applications-testing-autoconfigured-tests, test
 annotation to test a more specific slice of your application>>, you should avoid adding
 configuration settings that are specific to a particular area on the
 <<boot-features-testing-spring-boot-applications-testing-user-configuration, main
 method's application class>>.
+
+The underlying component scan configuration of `@SpringBootApplication` defines exclude
+filters that are used to make sure slicing works as expected. If you are using an explicit
+`@ComponentScan` directive on your `@SpringBootApplication`-annoted class, be aware that
+those filters will be disabled. If you are using slicing, you should define them again.
+====
 
 If you want to customize the primary configuration, you can use a nested
 `@TestConfiguration` class. Unlike a nested `@Configuration` class, which would be used
@@ -7218,7 +7266,7 @@ which auto-configures one for you.
 
 
 
-[[boot-features-environment-test-utilities]]
+[[boot-features-test-property-values]]
 ==== TestPropertyValues
 `TestPropertyValues` lets you quickly add properties to a
 `ConfigurableEnvironment` or `ConfigurableApplicationContext`. You can call it with
@@ -7343,6 +7391,51 @@ following example:
 [source,properties,indent=0]
 ----
 	spring.webservices.wsdl-locations=classpath:/wsdl
+----
+
+
+
+[[boot-features-webservices-template]]
+== Calling Web Services with `WebServiceTemplate`
+If you need to call remote Web services from your application, you can use the
+{spring-webservices-reference}#client-web-service-template[`WebServiceTemplate`] class.
+Since `WebServiceTemplate` instances often need to be customized before being used, Spring
+Boot does not provide any single auto-configured `WebServiceTemplate` bean. It does,
+however, auto-configure a `WebServiceTemplateBuilder`, which can be used to create
+`WebServiceTemplate` instances when needed.
+
+The following code shows a typical example:
+
+[source,java,indent=0]
+----
+	@Service
+	public class MyService {
+
+		private final WebServiceTemplate webServiceTemplate;
+
+		public MyService(WebServiceTemplateBuilder webServiceTemplateBuilder) {
+			this.webServiceTemplate = webServiceTemplateBuilder.build();
+		}
+
+		public DetailsResp someWsCall(DetailsReq detailsReq) {
+			 return (DetailsResp) this.webServiceTemplate.marshalSendAndReceive(detailsReq, new SoapActionCallback(ACTION));
+
+		}
+
+	}
+----
+
+By default, `WebServiceTemplateBuilder` detects a suitable HTTP-based
+`WebServiceMessageSender` using the available HTTP client libraries on the classpath. You
+can also customize read and connection timeouts as follows:
+
+[source,java,indent=0]
+----
+	@Bean
+	public WebServiceTemplate webServiceTemplate(WebServiceTemplateBuilder builder) {
+		return builder.messageSenders(new HttpWebServiceMessageSenderBuilder()
+				.setConnectTimeout(5000).setReadTimeout(2000).build()).build();
+	}
 ----
 
 
@@ -7633,6 +7726,41 @@ TIP: You should mark the dependencies to the library as optional so that you can
 the `autoconfigure` module in your projects more easily. If you do it that way, the
 library is not provided and, by default, Spring Boot backs off.
 
+Spring Boot uses an annotation processor to collect the conditions on auto-configurations
+in a metadata file (`META-INF/spring-autoconfigure-metadata.properties`). If that file is
+present, it is used to eagerly filter auto-configurations that do not match, which will
+improve startup time. It is recommended to add the following dependency in a module that
+contains auto-configurations:
+
+[source,xml,indent=0,subs="verbatim,quotes,attributes"]
+----
+	<dependency>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-autoconfigure-processor</artifactId>
+		<optional>true</optional>
+	</dependency>
+----
+
+With Gradle 4.5 and earlier, the dependency should be declared in the `compileOnly`
+configuration, as shown in the following example:
+
+[source,groovy,indent=0,subs="verbatim,quotes,attributes"]
+----
+	dependencies {
+		compileOnly "org.springframework.boot:spring-boot-autoconfigure-processor"
+	}
+----
+
+With Gradle 4.6 and later, the dependency should be declared in the `annotationProcessor`
+configuration, as shown in the following example:
+
+[source,groovy,indent=0,subs="verbatim,quotes,attributes"]
+----
+	dependencies {
+		annotationProcessor "org.springframework.boot:spring-boot-autoconfigure-processor"
+	}
+----
+
 
 
 [[boot-features-custom-starter-module-starter]]
@@ -7667,7 +7795,9 @@ such as Spring Framework, Spring Data, and Reactor. See the
 {spring-reference}languages.html#kotlin[Spring Framework Kotlin support documentation]
 for more information.
 
-The easiest way to start with Spring Boot and Kotlin is to create a project via
+The easiest way to start with Spring Boot and Kotlin is to follow
+https://spring.io/guides/tutorials/spring-boot-kotlin/[this comprehensive tutorial]. You
+can create new Kotlin projects via
 https://start.spring.io/#!language=kotlin[start.spring.io]. Feel free to join the #spring
 channel of http://slack.kotlinlang.org/[Kotlin Slack] or ask a question with `spring`
 and `kotlin` tags on https://stackoverflow.com/questions/tagged/spring+kotlin[Stack
@@ -7861,6 +7991,7 @@ instance lifecycle to "per-class"].
 * https://try.kotlinlang.org/[Try Kotlin in your browser]
 * https://blog.jetbrains.com/kotlin/[Kotlin blog]
 * https://kotlin.link/[Awesome Kotlin]
+* https://spring.io/guides/tutorials/spring-boot-kotlin/[Tutorial: building web applications with Spring Boot and Kotlin ]
 * https://spring.io/blog/2016/02/15/developing-spring-boot-applications-with-kotlin[Developing Spring Boot applications with Kotlin]
 * https://spring.io/blog/2016/03/20/a-geospatial-messenger-with-kotlin-spring-boot-and-postgresql[A Geospatial Messenger with Kotlin, Spring Boot and PostgreSQL]
 * https://spring.io/blog/2017/01/04/introducing-kotlin-support-in-spring-framework-5-0[Introducing Kotlin support in Spring Framework 5.0]

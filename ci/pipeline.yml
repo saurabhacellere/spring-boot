@@ -4,10 +4,6 @@ resource_types:
   source:
     repository: springio/artifactory-resource
     tag: 0.0.3
-- name: email
-  type: docker-image
-  source:
-    repository: pcfseceng/email-resource
 - name: pull-request
   type: docker-image
   source:
@@ -31,6 +27,13 @@ resources:
     password: ((github-password))
     branch: ((branch))
     ignore_paths: ["ci/images/*"]
+- name: git-pull-request
+  type: pull-request
+  source:
+    access_token: ((github-access-token))
+    repo: ((github-repo-name))
+    base: ((branch))
+    ignore_paths: ["ci/*"]
 - name: ci-images-git-repo
   type: git
   source:
@@ -65,16 +68,6 @@ resources:
     username: ((artifactory-username))
     password: ((artifactory-password))
     build_name: ((build-name))
-- name: email-notification
-  type: email
-  source:
-    smtp:
-      host: ((email-server))
-      port: "25"
-      anonymous: true
-      skip_ssl_validation: true
-    from: ((email-from))
-    to: ((email-to))
 - name: repo-status-build
   type: github-status-resource
   source:
@@ -146,44 +139,17 @@ jobs:
       do:
       - put: repo-status-build
         params: { state: "failure", commit: "git-repo" }
-      - task: determine-email-body
-        image: spring-boot-ci-image
-        file: git-repo/ci/tasks/determine-email-body.yml
-        params:
-          STATE: failure
-          BUILD_PIPELINE_NAME: ((pipeline-name))
-          BUILD_JOB_NAME: build
-          CONCOURSE_URL: ((concourse-url))
-          ACCESS_TOKEN: ((github-access-token))
-      - put: email-notification
-        params:
-          subject: email-details/subject
-          body: email-details/body
       - put: slack-alert
         params:
-          text: ":concourse-failed: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_JOB_NAME} failed!>"
+          text: ":concourse-failed: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_PIPELINE_NAME} ${BUILD_JOB_NAME} failed!>"
           silent: true
           icon_emoji: ":concourse:"
           username: concourse-ci
-  - do:
-    - task: determine-email-body
-      image: spring-boot-ci-image
-      file: git-repo/ci/tasks/determine-email-body.yml
-      params:
-        STATE: success
-        BUILD_PIPELINE_NAME: ((pipeline-name))
-        BUILD_JOB_NAME: build
-        CONCOURSE_URL: ((concourse-url))
-        ACCESS_TOKEN: ((github-access-token))
   - put: repo-status-build
     params: { state: "success", commit: "git-repo" }
-  - put: email-notification
-    params:
-      subject: email-details/subject
-      body: email-details/body
   - put: slack-alert
     params:
-      text: ":concourse-succeeded: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_JOB_NAME} was successful!>"
+      text: ":concourse-succeeded: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_PIPELINE_NAME} ${BUILD_JOB_NAME} was successful!>"
       silent: true
       icon_emoji: ":concourse:"
       username: concourse-ci
@@ -203,6 +169,47 @@ jobs:
         properties:
           "zip.type": "docs"
           "zip.deployed": "false"
+- name: build-pull-requests
+  serial: true
+  public: true
+  plan:
+  - get: spring-boot-ci-image
+  - get: git-repo
+    resource: git-pull-request
+    trigger: true
+    version: every
+  - do:
+    - put: git-pull-request
+      params:
+        path: git-repo
+        status: pending
+    - task: build-project
+      timeout: 1h30m
+      image: spring-boot-ci-image
+      file: git-repo/ci/tasks/build-pr-project.yml
+    - aggregate:
+      - task: build-samples
+        timeout: 1h30m
+        image: spring-boot-ci-image
+        file: git-repo/ci/tasks/build-samples.yml
+      - task: build-integration-tests
+        timeout: 1h30m
+        image: spring-boot-ci-image
+        file: git-repo/ci/tasks/build-integration-tests.yml
+      - task: build-deployment-tests
+        timeout: 1h30m
+        image: spring-boot-ci-image
+        file: git-repo/ci/tasks/build-deployment-tests.yml
+    on_success:
+      put: git-pull-request
+      params:
+        path: git-repo
+        status: success
+    on_failure:
+      put: git-pull-request
+      params:
+        path: git-repo
+        status: failure
 - name: jdk9-build
   serial: true
   public: true
@@ -235,44 +242,17 @@ jobs:
       do:
       - put: repo-status-jdk9-build
         params: { state: "failure", commit: "git-repo" }
-      - task: determine-email-body
-        image: spring-boot-jdk9-ci-image
-        file: git-repo/ci/tasks/determine-email-body.yml
-        params:
-          STATE: failure
-          BUILD_PIPELINE_NAME: ((pipeline-name))
-          BUILD_JOB_NAME: jdk9-build
-          CONCOURSE_URL: ((concourse-url))
-          ACCESS_TOKEN: ((github-access-token))
-      - put: email-notification
-        params:
-          subject: email-details/subject
-          body: email-details/body
       - put: slack-alert
         params:
-          text: ":concourse-failed: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_JOB_NAME} failed!>"
+          text: ":concourse-failed: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_PIPELINE_NAME} ${BUILD_JOB_NAME} failed!>"
           silent: true
           icon_emoji: ":concourse:"
           username: concourse-ci
-  - do:
-    - task: determine-email-body
-      image: spring-boot-jdk9-ci-image
-      file: git-repo/ci/tasks/determine-email-body.yml
-      params:
-        STATE: success
-        BUILD_PIPELINE_NAME: ((pipeline-name))
-        BUILD_JOB_NAME: jdk9-build
-        CONCOURSE_URL: ((concourse-url))
-        ACCESS_TOKEN: ((github-access-token))
   - put: repo-status-jdk9-build
     params: { state: "success", commit: "git-repo" }
-  - put: email-notification
-    params:
-      subject: email-details/subject
-      body: email-details/body
   - put: slack-alert
     params:
-      text: ":concourse-succeeded: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_JOB_NAME} was successful!>"
+      text: ":concourse-succeeded: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_PIPELINE_NAME} ${BUILD_JOB_NAME} was successful!>"
       silent: true
       icon_emoji: ":concourse:"
       username: concourse-ci
@@ -308,44 +288,17 @@ jobs:
       do:
       - put: repo-status-jdk10-build
         params: { state: "failure", commit: "git-repo" }
-      - task: determine-email-body
-        image: spring-boot-jdk10-ci-image
-        file: git-repo/ci/tasks/determine-email-body.yml
-        params:
-          STATE: failure
-          BUILD_PIPELINE_NAME: ((pipeline-name))
-          BUILD_JOB_NAME: jdk10-build
-          CONCOURSE_URL: ((concourse-url))
-          ACCESS_TOKEN: ((github-access-token))
-      - put: email-notification
-        params:
-          subject: email-details/subject
-          body: email-details/body
       - put: slack-alert
         params:
-          text: ":concourse-failed: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_JOB_NAME} failed!>"
+          text: ":concourse-failed: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_PIPELINE_NAME} ${BUILD_JOB_NAME} failed!>"
           silent: true
           icon_emoji: ":concourse:"
           username: concourse-ci
-  - do:
-    - task: determine-email-body
-      image: spring-boot-jdk10-ci-image
-      file: git-repo/ci/tasks/determine-email-body.yml
-      params:
-        STATE: success
-        BUILD_PIPELINE_NAME: ((pipeline-name))
-        BUILD_JOB_NAME: jdk10-build
-        CONCOURSE_URL: ((concourse-url))
-        ACCESS_TOKEN: ((github-access-token))
   - put: repo-status-jdk10-build
     params: { state: "success", commit: "git-repo" }
-  - put: email-notification
-    params:
-      subject: email-details/subject
-      body: email-details/body
   - put: slack-alert
     params:
-      text: ":concourse-succeeded: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_JOB_NAME} was successful!>"
+      text: ":concourse-succeeded: <https://ci.spring.io/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}|${BUILD_PIPELINE_NAME} ${BUILD_JOB_NAME} was successful!>"
       silent: true
       icon_emoji: ":concourse:"
       username: concourse-ci
@@ -471,6 +424,8 @@ jobs:
   - get: artifactory-repo
     trigger: false
     passed: [promote-release]
+    params:
+      save_build_info: true
   - task: sync-to-maven-central
     image: spring-boot-ci-image
     file: git-repo/ci/tasks/sync-to-maven-central.yml
@@ -488,3 +443,5 @@ groups:
   jobs: ["stage-milestone", "stage-rc", "stage-release", "promote-milestone", "promote-rc", "promote-release", "sync-to-maven-central"]
 - name: "CI Images"
   jobs: ["build-spring-boot-ci-images"]
+- name: "Build Pull Requests"
+  jobs: ["build-pull-requests"]
